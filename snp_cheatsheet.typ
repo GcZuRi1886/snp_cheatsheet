@@ -29,12 +29,15 @@
 #show raw: set text(size: 7pt)
 #show raw.where(block: true): set block(above: 3pt, below: 3pt)
 
+#let ra = sym.arrow.r   // →
+#let en = sym.dash.en   // –
+
 #place(
   top + center,
   scope: "parent",
   float: true,
   block(width: 100%, align(center)[
-    #text(size: 14pt, weight: "bold")[Systemnahe Programmierung (SNP) – Spick]
+    #text(size: 14pt, weight: "bold")[Systemnahe Programmierung (SNP) #en Spick]
   ])
 )
 
@@ -44,7 +47,7 @@
 
 - `char` (1B), `short` (2B), `int` (4B), `long` (8B), `float` (4B), `double` (8B)
 - `size_t`: vorzeichenloser Typ für Grössen (z.B. Rückgabe von `sizeof`)
-- `sizeof(Typ)` / `sizeof(Ausdruck)` → Grösse in Bytes, zur *Kompilierzeit* ausgewertet
+- `sizeof(Typ)` / `sizeof(Ausdruck)` #ra Grösse in Bytes, zur *Kompilierzeit* ausgewertet
 - `uint8_t`, `int32_t` etc. aus `<stdint.h>` für exakte Breiten
 
 ```c
@@ -58,7 +61,7 @@ printf("size=%zd\n", sizeof(v)); // 4
 - *Global*: im Global/Static-Bereich, gesamtes Programm sichtbar
 - *Static lokal*: Global/Static-Bereich, nur lokal sichtbar, bleibt erhalten
 - `extern`: Deklaration einer in anderem File definierten Variable
-- `static` bei Funktion/globale Variable → auf aktuelle Übersetzungseinheit begrenzt
+- `static` bei Funktion/globale Variable #ra auf aktuelle Übersetzungseinheit begrenzt
 
 == Kontrollstrukturen
 
@@ -85,18 +88,18 @@ Point p = { .x = 5, .name = "A" };
 
 == Präprozessor
 
-- `#include <stdio.h>` – System-Header
-- `#include "my.h"` – eigener Header
-- `#define MAX 100` – Textersetzung
-- `#ifdef / #ifndef / #endif` – bedingte Kompilierung
-- `#define SQUARE(x) ((x)*(x))` – Makro (Klammern wichtig!)
-- `gcc -E file.c` → Ausgabe nach Präprozessor
+- `#include <stdio.h>` #en System-Header
+- `#include "my.h"` #en eigener Header
+- `#define MAX 100` #en Textersetzung
+- `#ifdef / #ifndef / #endif` #en bedingte Kompilierung
+- `#define SQUARE(x) ((x)*(x))` #en Makro (Klammern wichtig!)
+- `gcc -E file.c` #ra Ausgabe nach Präprozessor
 
 == Präprozessor, Compiler, Linker
 
 - *Präprozessor*: Textsubstitution (`#include`, `#define`, `#ifdef`)
-- *Compiler*: Quellcode → Objektdatei (`.o`); enthält Maschinencode + offene Symbole
-- *Linker*: verbindet Objektdateien + Libraries → ausführbares Programm
+- *Compiler*: Quellcode #ra Objektdatei (`.o`); enthält Maschinencode + offene Symbole
+- *Linker*: verbindet Objektdateien + Libraries #ra ausführbares Programm
 ```
 gcc -c hello.c     # nur kompilieren → hello.o
 gcc -o hello hello.o  # linken
@@ -109,7 +112,7 @@ gcc -o hello hello.c  # alles in einem Schritt
 - *One-Definition-Rule (ODR)*: jede Funktion/Variable nur einmal definieren
 - Header (`.h`): enthält nur *Deklarationen* (kein Code, keine Variablen-Definition)
 - Quelldatei (`.c`): enthält *Definition* + `#include "modul.h"`
-- `static` vor Funktion → nur im eigenen File sichtbar (nicht-öffentlich)
+- `static` vor Funktion #ra nur im eigenen File sichtbar (nicht-öffentlich)
 
 #colbreak()
 
@@ -134,13 +137,13 @@ int v = max(3, 7);
 
 == Parameter by Value
 
-- Parameter werden als *Kopie* übergeben → Original unverändert
+- Parameter werden als *Kopie* übergeben #ra Original unverändert
 - `main` hat Signatur: `int main(void)` oder `int main(int argc, char *argv[])`
 - Rückgabe `EXIT_SUCCESS` / `EXIT_FAILURE` aus `<stdlib.h>`
 
 == Parameter by Reference
 
-- Adresse übergeben → Funktion kann Original verändern
+- Adresse übergeben #ra Funktion kann Original verändern
 
 ```c
 void swap(int *a, int *b) {
@@ -150,8 +153,8 @@ int x = 10, y = 20;
 swap(&x, &y); // x==20, y==10
 ```
 
-- `const int *p` → zeigt auf unveränderlichen Wert
-- `int * const p` → Pointer selbst unveränderlich
+- `const int *p` #ra zeigt auf unveränderlichen Wert
+- `int * const p` #ra Pointer selbst unveränderlich
 
 == Variadic Functions
 
@@ -192,7 +195,7 @@ int m[3][4]; // 2D-Array: 3 Zeilen, 4 Spalten
 
 - Elemente hintereinander im Speicher
 - Array-Name = Adresse des ersten Elements (nicht veränderbar)
-- `a[i]` ≡ `*(a + i)` (Pointer-Arithmetik)
+- `a[i]` $equiv$ `*(a + i)` (Pointer-Arithmetik)
 - *Kein* Bounds-Checking in C!
 
 #colbreak()
@@ -378,7 +381,7 @@ Betriebssystem-Kernel
 - *Kernel-Modus*: alle Operationen erlaubt (Ring 0)
 - *User-Modus*: eingeschränkt, kein direkter Hardware-Zugriff
 - Übergang via *System Call* (syscall)
-- `syscall(number, ...)` → bei Fehler return -1, `errno` gesetzt
+- `syscall(number, ...)` #ra bei Fehler return -1, `errno` gesetzt
 - Ca. 300 System Calls unter Linux (`man 2 syscalls`)
 
 ```c
@@ -390,7 +393,7 @@ Betriebssystem-Kernel
 == Memory Management Unit (MMU) & MPU
 
 - *MPU* (Memory Protection Unit): überwacht Adress-Bus, löst Exception bei unautorisiertem Zugriff aus
-- *MMU* (Memory Management Unit): übersetzt virtuelle→physikalische Adressen; beinhaltet MPU-Funktionalität
+- *MMU* (Memory Management Unit): übersetzt virtuelle #ra physikalische Adressen; beinhaltet MPU-Funktionalität
 - Virtuelles Memory: jeder Prozess hat privaten (virtuellen) Adressraum
 - Physischer Speicher kann auf Massenspeicher ausgelagert werden (Swap)
 
@@ -403,16 +406,16 @@ Betriebssystem-Kernel
 
 = Filesystem & I/O
 
-== «Everything is a File»
+== "Everything is a File"
 
-- Reguläre Files, Directories, Devices, Pipes, Sockets → alles Files
-- Zugriff: öffnen → lesen/schreiben → schliessen
+- Reguläre Files, Directories, Devices, Pipes, Sockets #ra alles Files
+- Zugriff: öffnen #ra lesen/schreiben #ra schliessen
 - *File Deskriptor* (fd): Integer-ID für geöffnetes File
 
 == Inode & Links
 
-- *Inode*: Verwaltungseinheit eines Files (Metadaten: Grösse, Besitzer, Timestamps, Ort auf Disk) – *nicht* der Dateiname
-- *Hard-Link*: Verzeichniseintrag → Inode; mehrere Links auf selbe Inode möglich; erst wenn Zähler = 0 wird File gelöscht
+- *Inode*: Verwaltungseinheit eines Files (Metadaten: Grösse, Besitzer, Timestamps, Ort auf Disk) #en *nicht* der Dateiname
+- *Hard-Link*: Verzeichniseintrag #ra Inode; mehrere Links auf selbe Inode möglich; erst wenn Zähler = 0 wird File gelöscht
 - *Symlink*: spezielles File mit Pfad als Inhalt; kann auf andere Filesysteme zeigen
 ```
 ln file hardlink     # Hard-Link erstellen
@@ -446,7 +449,7 @@ ln -s file symlink   # Symlink erstellen
 - *Vollgepuffert*: Ausgabe bei vollem Puffer oder `fflush()`
 - *Zeilengepuffert*: Ausgabe bei `\n` (stdout im Terminalmode)
 - *Ungepuffert*: sofort (stderr)
-- `fflush(stdout)` – Puffer leeren
+- `fflush(stdout)` #en Puffer leeren
 
 = Prozesse & Threads
 
@@ -462,7 +465,7 @@ ln -s file symlink   # Symlink erstellen
 
 - Programm in Ausführung mit: Code, Daten, virtuellem Memory, Ressourcen (Files etc.)
 - *Eigenes* virtuelles Memory (isoliert von anderen Prozessen)
-- Zustände: `running` → `ready` → `blocked` → `terminated`
+- Zustände: `running` #ra `ready` #ra `blocked` #ra `terminated`
 - Prozess-Kontrollblock (PCB): OS-interne Verwaltungsstruktur
 
 == Thread
@@ -470,7 +473,7 @@ ln -s file symlink   # Symlink erstellen
 - Leichtgewichtiger Kontrollfluss *innerhalb* eines Prozesses
 - Teilt sich Memory + Ressourcen mit anderen Threads desselben Prozesses
 - Günstiger Kontext-Switch (kein MMU-Umkonfigurieren)
-- Kein Speicherschutz zwischen Threads → Synchronisation nötig
+- Kein Speicherschutz zwischen Threads #ra Synchronisation nötig
 
 == Prozess-API
 
@@ -525,8 +528,8 @@ pclose(f);
 
 == Zombie & Waisen
 
-- *Zombie*: Kind terminiert, Eltern hat noch kein `wait()` gemacht → bleibt als Struktur im OS
-- *Waise*: Elternprozess terminiert, bevor Kind → wird von `init` (PID 1) adoptiert
+- *Zombie*: Kind terminiert, Eltern hat noch kein `wait()` gemacht #ra bleibt als Struktur im OS
+- *Waise*: Elternprozess terminiert, bevor Kind #ra wird von `init` (PID 1) adoptiert
 
 == Thread-API (pthreads)
 
@@ -558,7 +561,7 @@ pthread_detach(tid);
 
 == Race Condition & Critical Section
 
-- *Race Condition*: Ergebnis hängt von Ausführungsreihenfolge ab → Fehler
+- *Race Condition*: Ergebnis hängt von Ausführungsreihenfolge ab #ra Fehler
 - *Critical Section*: Codebereich mit exklusivem Zugriff auf gemeinsame Ressource
 - *Mutual Exclusion (Mutex)*: nur eine Task gleichzeitig in der Critical Section
 
@@ -594,7 +597,7 @@ sem_destroy(&sem);
 ```
 
 - Typische Anwendung: Task wartet auf Ergebnis einer anderen Task (Signalisierung)
-- Startwert 0 → wartende Task blockiert bis `sem_post` von anderer Task
+- Startwert 0 #ra wartende Task blockiert bis `sem_post` von anderer Task
 
 #colbreak()
 
@@ -682,7 +685,7 @@ close(fd[0]); close(fd[1]);
 ```
 
 - Unidirektional, FIFO, blockierend
-- Named Pipe: `mkfifo("/tmp/pipe", 0600)` → per Pfad zugreifbar
+- Named Pipe: `mkfifo("/tmp/pipe", 0600)` #ra per Pfad zugreifbar
 
 == POSIX Message Queue
 
@@ -740,7 +743,7 @@ clean:
 - `$^`: alle Abhängigkeiten
 - `$<`: erste Abhängigkeit
 - Einrückung mit *Tab* (nicht Spaces)!
-- `make -j4` – parallel bauen
+- `make -j4` #en parallel bauen
 
 #colbreak()
 
