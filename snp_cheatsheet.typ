@@ -421,14 +421,18 @@ ln -s file symlink   # Symlink erstellen
 
 == Dateisystem-Hierarchie (Auswahl)
 
-| Pfad | Inhalt |
-|------|--------|
-| `/bin` | Systemkommandos |
-| `/etc` | Konfigurationsdateien |
-| `/home` | Benutzerverzeichnisse |
-| `/dev` | Device-Files |
-| `/proc`, `/sys` | virtuelle Filesysteme |
-| `/tmp` | temporäre Dateien |
+#table(
+  columns: (auto, 1fr),
+  stroke: 0.5pt,
+  inset: 3pt,
+  table.header([Pfad], [Inhalt]),
+  [`/bin`], [Systemkommandos],
+  [`/etc`], [Konfigurationsdateien],
+  [`/home`], [Benutzerverzeichnisse],
+  [`/dev`], [Device-Files],
+  [`/proc`, `/sys`], [virtuelle Filesysteme],
+  [`/tmp`], [temporäre Dateien],
+)
 
 == Spezielle Files
 
@@ -592,6 +596,8 @@ sem_destroy(&sem);
 - Typische Anwendung: Task wartet auf Ergebnis einer anderen Task (Signalisierung)
 - Startwert 0 → wartende Task blockiert bis `sem_post` von anderer Task
 
+#colbreak()
+
 == Deadlock
 
 - Entsteht wenn Task A auf Task B wartet, B gleichzeitig auf A
@@ -618,14 +624,18 @@ pthread_barrier_wait(&b); // blockiert bis N Tasks hier sind
 
 == Übersicht
 
-| Mechanismus | Art | Synchronisation |
-|-------------|-----|-----------------|
-| Signal | Ereignis | implizit |
-| Pipe | Datenstrom | implizit |
-| Message Queue | Nachrichten | implizit |
-| Socket | Datenstrom | implizit |
-| Shared Memory | Speicher | *explizit* |
-| Shared File | Datei | *explizit* |
+#table(
+  columns: (auto, auto, auto),
+  stroke: 0.5pt,
+  inset: 3pt,
+  table.header([Mechanismus], [Art], [Synchronisation]),
+  [Signal], [Ereignis], [implizit],
+  [Pipe], [Datenstrom], [implizit],
+  [Message Queue], [Nachrichten], [implizit],
+  [Socket], [Datenstrom], [implizit],
+  [Shared Memory], [Speicher], [*explizit*],
+  [Shared File], [Datei], [*explizit*],
+)
 
 == POSIX Signals
 
@@ -642,17 +652,21 @@ struct sigaction sa = { .sa_handler = handler };
 sigaction(SIGINT, &sa, NULL);
 ```
 
-| Signal | Default | Bedeutung |
-|--------|---------|-----------|
-| `SIGINT` | Term | Ctrl+C |
-| `SIGTERM` | Term | Terminierung |
-| `SIGKILL` | Term | Kill (nicht abfangbar) |
-| `SIGQUIT` | Core | Ctrl+\\ |
-| `SIGSEGV` | Core | Ungültiger Speicherzugriff |
-| `SIGALRM` | Term | Timer |
-| `SIGCHLD` | Ign | Kindprozess terminiert |
-| `SIGSTOP` | Stop | Prozess stoppen (nicht abfangbar) |
-| `SIGCONT` | Cont | Prozess fortsetzen |
+#table(
+  columns: (auto, auto, 1fr),
+  stroke: 0.5pt,
+  inset: 3pt,
+  table.header([Signal], [Default], [Bedeutung]),
+  [`SIGINT`], [Term], [Ctrl+C],
+  [`SIGTERM`], [Term], [Terminierung],
+  [`SIGKILL`], [Term], [Kill (nicht abfangbar)],
+  [`SIGQUIT`], [Core], [Ctrl+\\],
+  [`SIGSEGV`], [Core], [Ungültiger Speicherzugriff],
+  [`SIGALRM`], [Term], [Timer],
+  [`SIGCHLD`], [Ign], [Kindprozess terminiert],
+  [`SIGSTOP`], [Stop], [Prozess stoppen (nicht abfangbar)],
+  [`SIGCONT`], [Cont], [Prozess fortsetzen],
+)
 
 == POSIX Pipes
 
@@ -727,6 +741,8 @@ clean:
 - `$<`: erste Abhängigkeit
 - Einrückung mit *Tab* (nicht Spaces)!
 - `make -j4` – parallel bauen
+
+#colbreak()
 
 = Code Quality & Test
 
