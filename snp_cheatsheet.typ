@@ -153,8 +153,31 @@ int x = 10, y = 20;
 swap(&x, &y); // x==20, y==10
 ```
 
-- `const int *p` #ra zeigt auf unveränderlichen Wert
-- `int * const p` #ra Pointer selbst unveränderlich
+== const-Qualifikator
+
+Lesehilfe: *von rechts nach links* lesen, `*` = "Pointer auf".
+
+```c
+const int x = 5;        // x unveränderlich
+
+const int *p;           // Pointer auf const int
+                        // → *p nicht änderbar, p selbst schon
+int const *p;           // identisch (const links/rechts von Typ)
+
+int * const p = &x;     // const Pointer auf int
+                        // → p nicht änderbar, *p schon
+
+const int * const p;    // const Pointer auf const int
+                        // → beides unveränderlich
+```
+
+- *Faustregel*: `const` rechts vom `*` #ra Pointer fix; links #ra Wert fix
+- Bei Funktionsparametern: `const char *s` signalisiert, dass die Funktion den String *nicht verändert*
+
+```c
+void print(const char *s);   // liest nur → const
+void modify(char *s);        // schreibt   → kein const
+```
 
 == Variadic Functions
 
@@ -207,7 +230,31 @@ int a[5];
 sizeof(a)        // 20 (Bytes gesamt)
 sizeof(a[0])     // 4
 sizeof(a)/sizeof(a[0]) // 5 (Anzahl Elemente)
+char s[] = "Hello"; // {'H','e','l','l','o','\0'}
+sizeof(s)        // 6 (inkl. '\0')
+strlen(s)        // 5 (ohne '\0')
 ```
+
+= Programmargumente (argc / argv)
+
+```c
+int main(int argc, char *argv[]) {
+    // argc: Anzahl Argumente (inkl. Programmname)
+    // argv[0]: Programmname, argv[1]..argv[argc-1]: Argumente
+    // argv[argc] == NULL (Sentinel)
+    for (int i = 1; i < argc; i++) {
+        printf("arg[%d] = %s\n", i, argv[i]);
+    }
+    // String → Zahl:
+    int n   = atoi(argv[1]);        // keine Fehlerprüfung
+    long l  = strtol(argv[1], NULL, 10); // besser: Fehlerprüfung via errno
+    double d = strtod(argv[1], NULL);
+}
+```
+
+- `argv` ist ein Array von `char *` (C-Strings)
+- Aufruf: `./prog foo 42` #ra `argc=3`, `argv[1]="foo"`, `argv[2]="42"`
+- Ungültige Argumente: Anzahl prüfen, sonst Segfault bei `argv[i]`
 
 == Strings (char-Arrays)
 
@@ -223,6 +270,27 @@ char *p = "World";    // String-Literal (read-only)
 ```c
 char buf[32];
 snprintf(buf, sizeof(buf), "val=%d", 42); // sicher
+```
+
+== Strings als Funktionsparameter
+
+- String-Array *zerfällt* beim Übergeben zum Pointer #ra `sizeof` liefert Zeigergrösse (8), nicht Array-Länge!
+- Länge separat übergeben oder `strlen` nutzen
+
+```c
+void print_str(const char *s) {  // const: Inhalt read-only
+    printf("%s (len=%zu)\n", s, strlen(s));
+    // sizeof(s) == 8 (Pointer!), NICHT Arraylänge
+}
+
+void fill(char *dst, size_t n, char c) {
+    for (size_t i = 0; i + 1 < n; i++) dst[i] = c;
+    dst[n - 1] = '\0';
+}
+
+char buf[32] = "Hello";
+print_str(buf);          // Array → const char *
+fill(buf, sizeof(buf), 'x'); // Länge explizit übergeben
 ```
 
 = Pointer
@@ -271,30 +339,100 @@ int m[3][4]; // Array von 3 Pointern auf int[4]
 char *names[] = {"Alice", "Bob", "Charlie"};
 ```
 
+= I/O & Standard Library
+
+== stdio.h
+
+```c
+printf("fmt %d %s\n", 42, "hi"); // stdout
+fprintf(stderr, "Fehler!\n");    // stderr
+scanf("%d", &n);                 // stdin
+fgets(buf, sizeof(buf), stdin);  // Zeile lesen (sicher)
+snprintf(buf, sz, "fmt", ...);   // sicheres sprintf
+```
+
+== printf / scanf Formatzeichen
+
+#table(
+  columns: (auto, auto, 1fr),
+  stroke: 0.5pt,
+  inset: 3pt,
+  table.header([Spez.], [Typ], [Bedeutung]),
+  [`%d` / `%i`], [`int`], [Ganzzahl dezimal],
+  [`%u`], [`unsigned int`], [Ganzzahl dezimal vorzeichenlos],
+  [`%ld`], [`long`], [Long dezimal],
+  [`%lld`], [`long long`], [Long long dezimal],
+  [`%zu`], [`size_t`], [Grösse (sizeof, strlen)],
+  [`%f`], [`double`], [Fliesskomma dezimal],
+  [`%lf`], [`double`], [Fliesskomma (scanf)],
+  [`%e`], [`double`], [Exponentialdarstellung],
+  [`%g`], [`double`], [Kürzer von `%f` / `%e`],
+  [`%c`], [`char`], [Einzelnes Zeichen],
+  [`%s`], [`char *`], [C-String (bis `\0`)],
+  [`%p`], [`void *`], [Pointer-Adresse (hex)],
+  [`%x` / `%X`], [`unsigned int`], [Hexadezimal klein/gross],
+  [`%o`], [`unsigned int`], [Oktal],
+  [`%%`], [–], [Literal `%`],
+)
+
+- Breite & Präzision: `%5d` (Breite 5), `%.2f` (2 Nachkommastellen), `%8.3f`
+- Links-ausrichten: `%-10s`; Nullen auffüllen: `%05d`
+- `scanf`: benötigt Adresse #ra `scanf("%d", &n)`, String: `scanf("%s", buf)`
+
+== File I/O (stdio)
+
+```c
+FILE *f = fopen("file.txt", "r"); // "r","w","a","rb"...
+if (!f) { perror("fopen"); exit(1); }
+char line[256];
+while (fgets(line, sizeof(line), f)) { ... }
+fclose(f);
+fprintf(f, "Hello %d\n", 42);
+fseek(f, 0, SEEK_SET); // Position setzen
+```
+
+== System Call I/O
+
+```c
+#include <fcntl.h>
+#include <unistd.h>
+int fd = open("file", O_RDONLY);    // O_WRONLY, O_RDWR, O_CREAT
+ssize_t n = read(fd, buf, sizeof(buf));
+write(fd, buf, n);
+close(fd);
+lseek(fd, 0, SEEK_SET);
+```
+
+- `stdin`=0, `stdout`=1, `stderr`=2 (File Deskriptoren)
+
+#colbreak()
+
 = Dynamische Allozierung
 
 == Speicherlayout
 
 ```
-+----------+ hohe Adresse
-|  Stack   | ← lokale Variablen, Funktionsaufrufe
-+----------+
-|  Heap    | ← malloc/calloc/realloc
-+----------+
-| Global/  | ← globale & static Variablen
-| Static   |
-+----------+
-|   Code   | ← Maschinencode
-+----------+ Adresse 0
+0xFFFF…  ┌──────────────┐
+         │    Stack     │ lokale Vars, Rücksprungadr.
+         │  ↓ wächst ↓  │
+         ├──────────────┤
+         │    (frei)    │
+         ├──────────────┤
+         │  ↑ wächst ↑  │
+         │     Heap     │ malloc / calloc / realloc
+         ├──────────────┤
+         │ BSS / Global │ globale & static Vars (0-init)
+         ├──────────────┤
+         │     Data     │ init. globale Vars
+         ├──────────────┤
+         │     Code     │ Maschinencode (read-only)
+0x0000…  └──────────────┘
 ```
-
-#colbreak()
 
 == malloc / calloc / realloc / free
 
 ```c
 #include <stdlib.h>
-
 // Alloziert size Bytes (uninitalisiert)
 void *malloc(size_t size);
 
@@ -323,44 +461,6 @@ p = NULL; // gute Praxis
 - *Stack Overflow*: zu tiefe Rekursion / grosse lokale Arrays
 - *Buffer Overflow*: Schreiben ausserhalb allozierter Grenzen
 - Immer Rückgabewert von `malloc()` prüfen (`== NULL`)
-
-= I/O & Standard Library
-
-== stdio.h
-
-```c
-printf("fmt %d %s\n", 42, "hi"); // stdout
-fprintf(stderr, "Fehler!\n");    // stderr
-scanf("%d", &n);                 // stdin
-fgets(buf, sizeof(buf), stdin);  // Zeile lesen (sicher)
-snprintf(buf, sz, "fmt", ...);   // sicheres sprintf
-```
-
-== File I/O (stdio)
-
-```c
-FILE *f = fopen("file.txt", "r"); // "r","w","a","rb"...
-if (!f) { perror("fopen"); exit(1); }
-char line[256];
-while (fgets(line, sizeof(line), f)) { ... }
-fclose(f);
-fprintf(f, "Hello %d\n", 42);
-fseek(f, 0, SEEK_SET); // Position setzen
-```
-
-== System Call I/O
-
-```c
-#include <fcntl.h>
-#include <unistd.h>
-int fd = open("file", O_RDONLY);    // O_WRONLY, O_RDWR, O_CREAT
-ssize_t n = read(fd, buf, sizeof(buf));
-write(fd, buf, n);
-close(fd);
-lseek(fd, 0, SEEK_SET);
-```
-
-- `stdin`=0, `stdout`=1, `stderr`=2 (File Deskriptoren)
 
 #colbreak()
 
@@ -474,6 +574,7 @@ ln -s file symlink   # Symlink erstellen
 - Teilt sich Memory + Ressourcen mit anderen Threads desselben Prozesses
 - Günstiger Kontext-Switch (kein MMU-Umkonfigurieren)
 - Kein Speicherschutz zwischen Threads #ra Synchronisation nötig
+- Eigener Stack + Register + Thread-ID
 
 == Prozess-API
 
@@ -514,7 +615,7 @@ if (cpid > 0) {  // Elternprozess
 ```c
 // Neues Programm im Kindprozess laden:
 char *argv[] = {"ls", "-l", NULL};
-execv("/bin/ls", argv); // kommt nur bei Fehler zurück
+execv("/bin/ls", argv); // returnt nur bei Fehler
 
 // Komfortfunktion (fork+exec+wait intern):
 int ret = system("/bin/ls -l");
@@ -526,10 +627,10 @@ FILE *f = popen("df -k", "r");
 pclose(f);
 ```
 
-== Zombie & Waisen
+== Zombie & Orphan
 
 - *Zombie*: Kind terminiert, Eltern hat noch kein `wait()` gemacht #ra bleibt als Struktur im OS
-- *Waise*: Elternprozess terminiert, bevor Kind #ra wird von `init` (PID 1) adoptiert
+- *Orphan*: Elternprozess terminiert, bevor Kind #ra wird von `init` (PID 1) adoptiert
 
 == Thread-API (pthreads)
 
@@ -606,6 +707,19 @@ sem_destroy(&sem);
 - Entsteht wenn Task A auf Task B wartet, B gleichzeitig auf A
 - Verhindert durch: konsistente Lock-Reihenfolge, Timeout, Lock-Hierarchie
 - Symptom: Programm hängt für immer
+
+=== Coffman-Bedingungen (alle 4 müssen gleichzeitig gelten)
+
+- *Mutual Exclusion*: Ressource kann nur von einer Task genutzt werden
+- *Hold & Wait*: Task hält Ressource und wartet auf weitere
+- *No Preemption*: Ressource kann Task nicht entzogen werden
+- *Circular Wait*: zyklische Kette von Tasks, jede wartet auf Ressource der nächsten
+
+== Starvation
+
+- Thread wartet unbegrenzt lange, weil andere Threads bevorzugt werden
+- Ursachen: unfaire Scheduler-Politik, Prioritätsinversion, immer neue höher-priorisierte Threads
+- Verhindert durch: faire Locks (`PTHREAD_MUTEX_ERRORCHECK`), Priority Inheritance, Aging (Priorität steigt mit Wartezeit)
 
 == Weitere Synchronisationsmittel
 
@@ -791,4 +905,55 @@ if (open(...) == -1) {
     fprintf(stderr, "open: %s\n", strerror(errno));
 }
 ```
-
+= ASCII Tabelle
+#table(
+  columns: (auto, auto, auto, auto, auto, auto, auto, auto, auto, auto, auto, auto),
+  inset: 3pt,
+  stroke: 0.5pt,
+  fill: (col, row) => {
+    if row == 0 { luma(200) }
+    else {
+      let group = calc.floor(col / 3)
+      let base = (
+        rgb("#ffd9d9"),  // 0–31: Steuerzeichen (rot)
+        rgb("#fff9cc"),  // 32–63: Sonderzeichen + Ziffern (gelb)
+        rgb("#d9eeff"),  // 64–95: Grossbuchstaben (blau)
+        rgb("#d9ffd9"),  // 96–127: Kleinbuchstaben (grün)
+      ).at(group)
+      if calc.even(row) { base.lighten(25%) } else { base }
+    }
+  },
+  [*D*], [*H*], [*Z*], [*D*], [*H*], [*Z*], [*D*], [*H*], [*Z*], [*D*], [*H*], [*Z*],
+  [0],[00],[NUL],   [32],[20],[SP],   [64],[40],[\@],  [96],[60],[\`],
+  [1],[01],[SOH],   [33],[21],[!],    [65],[41],[A],   [97],[61],[a],
+  [2],[02],[STX],   [34],[22],["],    [66],[42],[B],   [98],[62],[b],
+  [3],[03],[ETX],   [35],[23],[\#],   [67],[43],[C],   [99],[63],[c],
+  [4],[04],[EOT],   [36],[24],[\$],   [68],[44],[D],   [100],[64],[d],
+  [5],[05],[ENQ],   [37],[25],[%],    [69],[45],[E],   [101],[65],[e],
+  [6],[06],[ACK],   [38],[26],[&],    [70],[46],[F],   [102],[66],[f],
+  [7],[07],[BEL],   [39],[27],['],    [71],[47],[G],   [103],[67],[g],
+  [8],[08],[BS],    [40],[28],[(],    [72],[48],[H],   [104],[68],[h],
+  [9],[09],[HT],    [41],[29],[)],    [73],[49],[I],   [105],[69],[i],
+  [10],[0A],[LF],   [42],[2A],[\*],   [74],[4A],[J],   [106],[6A],[j],
+  [11],[0B],[VT],   [43],[2B],[+],    [75],[4B],[K],   [107],[6B],[k],
+  [12],[0C],[FF],   [44],[2C],[,],    [76],[4C],[L],   [108],[6C],[l],
+  [13],[0D],[CR],   [45],[2D],[-],    [77],[4D],[M],   [109],[6D],[m],
+  [14],[0E],[SO],   [46],[2E],[.],    [78],[4E],[N],   [110],[6E],[n],
+  [15],[0F],[SI],   [47],[2F],[/],    [79],[4F],[O],   [111],[6F],[o],
+  [16],[10],[DLE],  [48],[30],[0],    [80],[50],[P],   [112],[70],[p],
+  [17],[11],[DC1],  [49],[31],[1],    [81],[51],[Q],   [113],[71],[q],
+  [18],[12],[DC2],  [50],[32],[2],    [82],[52],[R],   [114],[72],[r],
+  [19],[13],[DC3],  [51],[33],[3],    [83],[53],[S],   [115],[73],[s],
+  [20],[14],[DC4],  [52],[34],[4],    [84],[54],[T],   [116],[74],[t],
+  [21],[15],[NAK],  [53],[35],[5],    [85],[55],[U],   [117],[75],[u],
+  [22],[16],[SYN],  [54],[36],[6],    [86],[56],[V],   [118],[76],[v],
+  [23],[17],[ETB],  [55],[37],[7],    [87],[57],[W],   [119],[77],[w],
+  [24],[18],[CAN],  [56],[38],[8],    [88],[58],[X],   [120],[78],[x],
+  [25],[19],[EM],   [57],[39],[9],    [89],[59],[Y],   [121],[79],[y],
+  [26],[1A],[SUB],  [58],[3A],[:],    [90],[5A],[Z],   [122],[7A],[z],
+  [27],[1B],[ESC],  [59],[3B],[;],    [91],[5B],[\[],  [123],[7B],[\{],
+  [28],[1C],[FS],   [60],[3C],[<],    [92],[5C],[\\],  [124],[7C],[|],
+  [29],[1D],[GS],   [61],[3D],[=],    [93],[5D],[\]],  [125],[7D],[\}],
+  [30],[1E],[RS],   [62],[3E],[>],    [94],[5E],[^],   [126],[7E],[\~],
+  [31],[1F],[US],   [63],[3F],[?],    [95],[5F],[\_],  [127],[7F],[DEL],
+)
