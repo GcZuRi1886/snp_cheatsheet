@@ -37,7 +37,7 @@
   scope: "parent",
   float: true,
   block(width: 100%, align(center)[
-    #text(size: 14pt, weight: "bold")[Systemnahe Programmierung (SNP) #en Spick]
+    #text(size: 14pt, weight: "bold")[Systemnahe Programmierung (SNP)]
   ])
 )
 
@@ -53,6 +53,25 @@
 ```c
 int v = 1234;
 printf("size=%zd\n", sizeof(v)); // 4
+```
+
+== Type Casting
+
+```c
+// Implizit (automatisch):
+int i = 'A';            // char → int (65)
+double d = 10;          // int → double (10.0)
+
+// Explizit:
+int n = (int)3.9;       // → 3 (truncation, nicht runden!)
+double r = (double)5 / 2; // → 2.5 (ohne cast: 2)
+void *p = malloc(4);
+int *ip = (int *)p;     // void* → int*
+
+// Fallstricke:
+unsigned int u = -1;    // → 4294967295 (wrap-around!)
+int a = 200, b = 300;
+long c = (long)a * b;   // ohne Cast: int-Overflow!
 ```
 
 == Variablen & Sichtbarkeit
@@ -73,6 +92,44 @@ do { ... } while (cond);
 switch (x) { case 1: ...; break; default: ...; }
 ```
 
+== Bitoperationen
+
+```c
+a & b    // AND:  gemeinsame Bits
+a | b    // OR:   Bits vereinigen
+a ^ b    // XOR:  Bits toggeln
+~a       // NOT:  alle Bits invertieren
+a << n   // Links-Shift:  a * 2^n
+a >> n   // Rechts-Shift: a / 2^n
+
+uint8_t r = 0x00;
+r |=  (1 << 3);        // Bit 3 setzen   → 0x08
+r &= ~(1 << 3);        // Bit 3 löschen  → 0x00
+r ^=  (1 << 3);        // Bit 3 toggeln
+if (r & (1 << 3)) { }  // Bit 3 prüfen
+```
+
+#colbreak()
+
+== Operator-Vorrangreihenfolge (hoch #ra tief)
+
+#table(
+  columns: (auto, 1fr),
+  stroke: 0.5pt,
+  inset: 3pt,
+  [`() [] -> .`], [Klammern, Zugriff],
+  [`! ~ ++ -- * & (T) sizeof`], [Unär (rechts-ass.)],
+  [`* / %`], [Multiplikativ],
+  [`+ -`], [Additiv],
+  [`<< >>`], [Bitshift],
+  [`< <= > >=`], [Vergleich],
+  [`== !=`], [Gleichheit],
+  [`&` / `^` / `|`], [Bitwise AND / XOR / OR],
+  [`&&` / `||`], [Logisch AND / OR],
+  [`?:`], [Ternär (rechts-ass.)],
+  [`= += -= …`], [Zuweisung (rechts-ass.)],
+)
+
 == Structs & Enums
 
 ```c
@@ -85,6 +142,22 @@ typedef enum { RED, GREEN, BLUE } Color;
 
 Point p = { .x = 5, .name = "A" };
 ```
+
+== Unions
+
+```c
+union Data {
+    int   i;
+    float f;
+    char  bytes[4];
+};
+union Data d;
+d.i = 42;  // i, f und bytes teilen denselben Speicher
+```
+
+- `sizeof(union)` = Grösse des *grössten* Members
+- Nur ein Member gleichzeitig sinnvoll/gültig
+- Typisch: Typkonvertierung auf Byte-Ebene, Protokoll-Parsing
 
 == Präprozessor
 
@@ -179,6 +252,23 @@ void print(const char *s);   // liest nur → const
 void modify(char *s);        // schreibt   → kein const
 ```
 
+== volatile-Qualifier
+
+- `volatile`: verhindert Compiler-Optimierung (kein Cachen in Register)
+- Variable kann sich ausserhalb des normalen Kontrollflusses ändern
+- Typisch: Signal-Handler-Flags, Memory-Mapped Hardware-Register
+
+```c
+volatile int flag = 0; // nicht wegoptimieren!
+static void handler(int sig) { flag = 1; }
+int main(void) {
+    signal(SIGINT, handler);
+    while (!flag) { /* busy-wait */ }
+}
+```
+
+#colbreak()
+
 == Variadic Functions
 
 ```c
@@ -192,6 +282,23 @@ int sum(int n, ...) {
     return s;
 }
 ```
+
+== Rekursion
+
+```c
+int factorial(int n) {
+    if (n <= 1) return 1;        // Basisfall
+    return n * factorial(n - 1); // Rekursionsfall
+}
+int fib(int n) { // exponentiell ohne Memoization
+    if (n <= 1) return n;
+    return fib(n-1) + fib(n-2);
+}
+```
+
+- Jeder Aufruf: eigener Stack-Frame (lokale Vars + Rücksprungadr.)
+- Zu tiefe Rekursion #ra Stack Overflow
+- Tail-Call: Rekursion als letzter Ausdruck #ra Compiler kann in Schleife umwandeln
 
 == Funktionspointer
 
@@ -221,8 +328,6 @@ int m[3][4]; // 2D-Array: 3 Zeilen, 4 Spalten
 - `a[i]` $equiv$ `*(a + i)` (Pointer-Arithmetik)
 - *Kein* Bounds-Checking in C!
 
-#colbreak()
-
 == sizeof bei Arrays
 
 ```c
@@ -234,6 +339,8 @@ char s[] = "Hello"; // {'H','e','l','l','o','\0'}
 sizeof(s)        // 6 (inkl. '\0')
 strlen(s)        // 5 (ohne '\0')
 ```
+
+#colbreak()
 
 = Programmargumente (argc / argv)
 
@@ -256,6 +363,24 @@ int main(int argc, char *argv[]) {
 - Aufruf: `./prog foo 42` #ra `argc=3`, `argv[1]="foo"`, `argv[2]="42"`
 - Ungültige Argumente: Anzahl prüfen, sonst Segfault bei `argv[i]`
 
+== Umgebungsvariablen
+
+```c
+#include <stdlib.h>
+char *p = getenv("PATH"); // NULL falls nicht gesetzt
+if (p) printf("%s\n", p);
+
+setenv("MY_VAR", "hello", 1); // 1 = überschreiben
+unsetenv("MY_VAR");
+
+// Alle Variablen:
+extern char **environ;
+for (char **e = environ; *e != NULL; e++)
+    printf("%s\n", *e); // Format: "NAME=WERT"
+```
+
+- Alternativ: `int main(int argc, char *argv[], char *envp[])`
+
 == Strings (char-Arrays)
 
 ```c
@@ -272,6 +397,20 @@ char buf[32];
 snprintf(buf, sizeof(buf), "val=%d", 42); // sicher
 ```
 
+== Escape-Sequenzen
+
+#table(
+  columns: (auto, 1fr, auto, 1fr),
+  stroke: 0.5pt,
+  inset: 3pt,
+  table.header([Seq.], [Bedeutung], [Seq.], [Bedeutung]),
+  [`\n`], [Newline (LF)],    [`\t`], [Tabulator],
+  [`\r`], [Carriage Return], [`\0`], [Null-Terminator],
+  [`\\`], [Backslash],       [`\"`], [Anführungszeichen],
+  [`\'`], [Apostroph],       [`\a`], [Bell (Signalton)],
+  [`\b`], [Backspace],       [`\xHH`], [Hex (z.B. `\x41` = `A`)],
+)
+
 == Strings als Funktionsparameter
 
 - String-Array *zerfällt* beim Übergeben zum Pointer #ra `sizeof` liefert Zeigergrösse (8), nicht Array-Länge!
@@ -282,12 +421,10 @@ void print_str(const char *s) {  // const: Inhalt read-only
     printf("%s (len=%zu)\n", s, strlen(s));
     // sizeof(s) == 8 (Pointer!), NICHT Arraylänge
 }
-
 void fill(char *dst, size_t n, char c) {
     for (size_t i = 0; i + 1 < n; i++) dst[i] = c;
     dst[n - 1] = '\0';
 }
-
 char buf[32] = "Hello";
 print_str(buf);          // Array → const char *
 fill(buf, sizeof(buf), 'x'); // Länge explizit übergeben
@@ -378,6 +515,27 @@ snprintf(buf, sz, "fmt", ...);   // sicheres sprintf
 - Breite & Präzision: `%5d` (Breite 5), `%.2f` (2 Nachkommastellen), `%8.3f`
 - Links-ausrichten: `%-10s`; Nullen auffüllen: `%05d`
 - `scanf`: benötigt Adresse #ra `scanf("%d", &n)`, String: `scanf("%s", buf)`
+
+#colbreak()
+
+== stdlib.h (Auswahl)
+
+```c
+#include <stdlib.h>
+abs(-5)              // → 5  (int; labs() für long)
+rand()               // Zufallszahl [0, RAND_MAX]
+srand(time(NULL));   // Seed setzen (einmalig!)
+
+// Sortieren & Suchen:
+int cmp(const void *a, const void *b) {
+    return *(int*)a - *(int*)b;
+}
+int arr[] = {3, 1, 2};
+qsort(arr, 3, sizeof(int), cmp);  // in-place sortieren
+int key = 2;
+int *f = bsearch(&key, arr, 3, sizeof(int), cmp);
+// bsearch: NULL falls nicht gefunden; Array muss sortiert sein!
+```
 
 == File I/O (stdio)
 
@@ -544,6 +702,30 @@ ln -s file symlink   # Symlink erstellen
 - *Named Pipe*: IPC zwischen Prozessen
 - *Socket*: Netzwerk-/lokale IPC
 
+#colbreak()
+
+== Directory-Operationen & stat
+
+```c
+#include <dirent.h>
+#include <sys/stat.h>
+
+DIR *d = opendir("/tmp");
+struct dirent *e;
+while ((e = readdir(d)) != NULL)
+    printf("%s\n", e->d_name); // inkl. "." und ".."
+closedir(d);
+
+struct stat st;
+stat("file.txt", &st);    // lstat() folgt Symlink NICHT
+printf("Grösse: %ld\n", (long)st.st_size);
+printf("Rechte: %o\n",   st.st_mode & 0777);
+// Typprüfung:
+S_ISREG(st.st_mode)   // reguläres File
+S_ISDIR(st.st_mode)   // Verzeichnis
+S_ISLNK(st.st_mode)   // Symlink (nur mit lstat)
+```
+
 == Stream Buffering
 
 - *Vollgepuffert*: Ausgabe bei vollem Puffer oder `fflush()`
@@ -575,6 +757,26 @@ ln -s file symlink   # Symlink erstellen
 - Günstiger Kontext-Switch (kein MMU-Umkonfigurieren)
 - Kein Speicherschutz zwischen Threads #ra Synchronisation nötig
 - Eigener Stack + Register + Thread-ID
+
+
+== exec & system
+
+```c
+// Neues Programm im Kindprozess laden:
+char *argv[] = {"ls", "-l", NULL};
+execv("/bin/ls", argv); // returnt nur bei Fehler
+
+// Komfortfunktion (fork+exec+wait intern):
+int ret = system("/bin/ls -l");
+int code = WEXITSTATUS(ret);
+
+// stdout des Unterprozesses lesen:
+FILE *f = popen("df -k", "r");
+// ... fgets(line, sizeof(line), f) ...
+pclose(f);
+```
+
+#colbreak()
 
 == Prozess-API
 
@@ -610,28 +812,6 @@ if (cpid > 0) {  // Elternprozess
 }
 ```
 
-== exec & system
-
-```c
-// Neues Programm im Kindprozess laden:
-char *argv[] = {"ls", "-l", NULL};
-execv("/bin/ls", argv); // returnt nur bei Fehler
-
-// Komfortfunktion (fork+exec+wait intern):
-int ret = system("/bin/ls -l");
-int code = WEXITSTATUS(ret);
-
-// stdout des Unterprozesses lesen:
-FILE *f = popen("df -k", "r");
-// ... fgets(line, sizeof(line), f) ...
-pclose(f);
-```
-
-== Zombie & Orphan
-
-- *Zombie*: Kind terminiert, Eltern hat noch kein `wait()` gemacht #ra bleibt als Struktur im OS
-- *Orphan*: Elternprozess terminiert, bevor Kind #ra wird von `init` (PID 1) adoptiert
-
 == Thread-API (pthreads)
 
 ```c
@@ -657,6 +837,13 @@ pthread_detach(tid);
 ```
 
 - Fehler-Check: `int r = pthread_create(...); if (r) { errno=r; perror(...); }`
+
+== Zombie & Orphan
+
+- *Zombie*: Kind terminiert, Eltern hat noch kein `wait()` gemacht #ra bleibt als Struktur im OS
+- *Orphan*: Elternprozess terminiert, bevor Kind #ra wird von `init` (PID 1) adoptiert
+
+#colbreak()
 
 = Thread-Synchronisation
 
@@ -700,8 +887,6 @@ sem_destroy(&sem);
 - Typische Anwendung: Task wartet auf Ergebnis einer anderen Task (Signalisierung)
 - Startwert 0 #ra wartende Task blockiert bis `sem_post` von anderer Task
 
-#colbreak()
-
 == Deadlock
 
 - Entsteht wenn Task A auf Task B wartet, B gleichzeitig auf A
@@ -736,6 +921,8 @@ pthread_barrier_t b;
 pthread_barrier_init(&b, NULL, N);
 pthread_barrier_wait(&b); // blockiert bis N Tasks hier sind
 ```
+
+#colbreak()
 
 = Inter-Process Communication (IPC)
 
@@ -811,6 +998,25 @@ close(fd[0]); close(fd[1]);
 // Schliessen/Löschen: mq_close, mq_unlink
 // Kompilieren: -lrt
 ```
+#colbreak()
+
+== POSIX Shared Memory
+
+```c
+#include <sys/mman.h>  // mmap, munmap
+// shm_open/shm_unlink benötigen: -lrt
+int fd = shm_open("/myshm", O_CREAT|O_RDWR, 0600);
+ftruncate(fd, sizeof(int));    // Grösse setzen
+int *ptr = mmap(NULL, sizeof(int),
+    PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0);
+close(fd);
+*ptr = 42;                     // Verwenden
+munmap(ptr, sizeof(int));      // Freigeben
+shm_unlink("/myshm");          // Segment löschen
+```
+
+- Synchronisation nötig! (Mutex oder Semaphore)
+- `MAP_ANONYMOUS | MAP_SHARED` + `fork()` #ra ohne Namen
 
 == POSIX Sockets
 
@@ -882,6 +1088,10 @@ if (!f) { perror("fopen"); exit(EXIT_FAILURE); }
 -Wall -Wextra      # Warnungen einschalten
 -Werror            # Warnungen als Fehler
 -g                 # Debug-Symbole
+-O0                # keine Optimierung (Default, gut zum Debuggen)
+-O2                # empfohlene Optimierung für Release
+-O3                # aggressive Optimierung
+-Os                # Grösse minimieren
 -fsanitize=address # AddressSanitizer (Speicherfehler)
 -fsanitize=thread  # ThreadSanitizer (Race Conditions)
 -std=gnu11         # C11 Standard
@@ -892,6 +1102,23 @@ if (!f) { perror("fopen"); exit(EXIT_FAILURE); }
 ```
 valgrind --leak-check=full ./myprog
 valgrind --tool=helgrind ./myprog  # Thread-Fehler
+```
+
+== GDB (Debugger)
+
+```
+gcc -g -o prog prog.c    # Debug-Symbole einbetten
+gdb ./prog
+(gdb) break main         # Breakpoint bei Funktion
+(gdb) break datei.c:42  # Breakpoint bei Zeile
+(gdb) run [args]         # Programm starten
+(gdb) next     (n)       # nächste Zeile, kein Step-in
+(gdb) step     (s)       # in Funktion einsteigen
+(gdb) continue (c)       # bis nächsten Breakpoint
+(gdb) print var          # Variable ausgeben
+(gdb) backtrace (bt)     # Aufruf-Stack anzeigen
+(gdb) info locals        # lokale Variablen
+(gdb) quit     (q)       # GDB beenden
 ```
 
 == errno & perror
@@ -905,6 +1132,9 @@ if (open(...) == -1) {
     fprintf(stderr, "open: %s\n", strerror(errno));
 }
 ```
+
+#colbreak()
+
 = ASCII Tabelle
 #table(
   columns: (auto, auto, auto, auto, auto, auto, auto, auto, auto, auto, auto, auto),
