@@ -109,6 +109,13 @@ r ^=  (1 << 3);        // Bit 3 toggeln
 if (r & (1 << 3)) { }  // Bit 3 prüfen
 ```
 
+*Gefahren mit signed Typen:*
+- `~`, `&`, `|`, `^` auf `signed int`: funktioniert, aber Vorzeichen-Bit wird mitverändert #ra unerwartet negative Werte
+- `a >> n` auf negativem `signed`: *implementierungsabhängig* (arithm. oder log. Shift) #ra `unsigned` verwenden!
+- `a << n` auf negativem `signed` oder mit Überlauf: *undefiniertes Verhalten*
+- Shift um ≥ Bitbreite (`x << 32` bei 32-bit `int`): *undefiniertes Verhalten*
+- *Faustregel*: Bitoperationen immer auf `unsigned`-Typen anwenden: `1u << n` statt `1 << n`
+
 #colbreak()
 
 == Operator-Vorrangreihenfolge (hoch #ra tief)
@@ -339,6 +346,7 @@ char s[] = "Hello"; // {'H','e','l','l','o','\0'}
 sizeof(s)        // 6 (inkl. '\0')
 strlen(s)        // 5 (ohne '\0')
 ```
+Beim Übergeben eines Arrays an eine Funktion "zerfällt" es zum Pointer #ra `sizeof` liefert Zeigergrösse (8), nicht Array-Länge!
 
 #colbreak()
 
@@ -384,17 +392,41 @@ for (char **e = environ; *e != NULL; e++)
 == Strings (char-Arrays)
 
 ```c
-char s[] = "Hello";   // {'H','e','l','l','o','\0'}
-char *p = "World";    // String-Literal (read-only)
+char s[] = "Hello";  // {'H','e','l','l','o','\0'} – veränderbar
+char *p = "World";   // String-Literal – read-only! (Schreiben → UB)
 ```
 
-- Immer mit `\0` terminiert
-- `<string.h>`: `strlen`, `strcpy`, `strcat`, `strcmp`, `strncpy`, `strncat`
-- Sicher: immer `strncpy(dst, src, sizeof(dst)-1); dst[n-1]='\0';`
+- Immer mit `\0` terminiert; *fehlendes* `\0` #ra `strlen`/`printf` laufen über
+
+#table(
+  columns: (auto, auto, 1fr),
+  stroke: 0.5pt,
+  inset: 3pt,
+  table.header([Funktion], [Header], [Verhalten & Edge Cases]),
+  [`strlen(s)`],           [`<string.h>`], [Länge *ohne* `\0`; UB wenn kein `\0`],
+  [`strcpy(dst, src)`],    [`<string.h>`], [Kopiert inkl. `\0`; *kein* Bounds-Check #ra Buffer Overflow!],
+  [`strncpy(dst,src,n)`],  [`<string.h>`], [Kopiert max. `n` Bytes; füllt Rest mit `\0`; aber: *kein* `\0` wenn `src` ≥ `n` Zeichen #ra manuell setzen!],
+  [`strcat(dst, src)`],    [`<string.h>`], [Hängt `src` an `dst` an; *kein* Bounds-Check #ra gefährlich],
+  [`strncat(dst,src,n)`],  [`<string.h>`], [Hängt max. `n` Zeichen an; setzt `\0`; `n` = verbleibender Platz],
+  [`strcmp(a, b)`],        [`<string.h>`], [0 = gleich, \<0 = a vor b, >0 = a nach b; *nie* mit `==` vergleichen!],
+  [`strncmp(a,b,n)`],      [`<string.h>`], [Wie `strcmp`, aber max. `n` Zeichen],
+  [`strchr(s,c)`],         [`<string.h>`], [Erstes Vorkommen von `c`; `NULL` falls nicht gefunden],
+  [`strstr(s,sub)`],       [`<string.h>`], [Ersten Teilstring finden; `NULL` falls nicht gefunden],
+  [`sprintf(buf,fmt,…)`],  [`<stdio.h>`],  [*Kein* Bounds-Check #ra immer `snprintf` verwenden!],
+  [`snprintf(buf,n,fmt,…)`],[`<stdio.h>`], [Schreibt max. `n-1` Zeichen + `\0`; gibt benötigte Länge zurück],
+)
 
 ```c
-char buf[32];
-snprintf(buf, sizeof(buf), "val=%d", 42); // sicher
+// Sicheres Kopieren:
+char dst[32];
+strncpy(dst, src, sizeof(dst) - 1);
+dst[sizeof(dst) - 1] = '\0';        // Sicherheits-\0 immer setzen!
+
+// Sicheres Anhängen:
+strncat(dst, src, sizeof(dst) - strlen(dst) - 1);
+
+// Strings nie mit == vergleichen (vergleicht Pointer!):
+if (strcmp(a, b) == 0) { /* gleich */ }
 ```
 
 == Escape-Sequenzen
@@ -471,10 +503,11 @@ pp->x = 10;   // identisch mit (*pp).x = 10
 ```c
 int m[3][4]; // Array von 3 Pointern auf int[4]
 // m[i][j] == *(*(m + i) + j)
-
 // Array von Pointern (verschieden lang):
 char *names[] = {"Alice", "Bob", "Charlie"};
 ```
+
+#colbreak()
 
 = I/O & Standard Library
 
@@ -516,8 +549,6 @@ snprintf(buf, sz, "fmt", ...);   // sicheres sprintf
 - Links-ausrichten: `%-10s`; Nullen auffüllen: `%05d`
 - `scanf`: benötigt Adresse #ra `scanf("%d", &n)`, String: `scanf("%s", buf)`
 
-#colbreak()
-
 == stdlib.h (Auswahl)
 
 ```c
@@ -549,21 +580,28 @@ fprintf(f, "Hello %d\n", 42);
 fseek(f, 0, SEEK_SET); // Position setzen
 ```
 
+#colbreak()
+
 == System Call I/O
 
 ```c
 #include <fcntl.h>
 #include <unistd.h>
-int fd = open("file", O_RDONLY);    // O_WRONLY, O_RDWR, O_CREAT
+int fd = open("file", O_RDONLY);  // O_WRONLY, O_RDWR, O_CREAT
+if (fd == -1) { perror("open"); exit(EXIT_FAILURE); }
+
 ssize_t n = read(fd, buf, sizeof(buf));
-write(fd, buf, n);
-close(fd);
-lseek(fd, 0, SEEK_SET);
+if (n == -1) { perror("read"); close(fd); exit(EXIT_FAILURE); }
+// n == 0: EOF
+
+if (write(fd, buf, n) == -1) { perror("write"); }
+
+if (close(fd) == -1) { perror("close"); }
+
+if (lseek(fd, 0, SEEK_SET) == -1) { perror("lseek"); }
 ```
 
 - `stdin`=0, `stdout`=1, `stderr`=2 (File Deskriptoren)
-
-#colbreak()
 
 = Dynamische Allozierung
 
@@ -609,7 +647,7 @@ int *p = malloc(10 * sizeof(int));
 if (!p) { perror("malloc"); exit(EXIT_FAILURE); }
 p[0] = 42;
 free(p);
-p = NULL; // gute Praxis
+p = NULL; // sicherer: Verhindert versehentlichen Zugriff auf freigegebenen Speicher
 ```
 
 == Häufige Fehler
@@ -861,9 +899,10 @@ pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 // oder:
 pthread_mutex_init(&mutex, NULL);
 
-pthread_mutex_lock(&mutex);   // Entry – blockiert falls belegt
-// ... Critical Section ...
-pthread_mutex_unlock(&mutex); // Exit
+pthread_mutex_lock(&mutex);    // blockiert bis Mutex frei
+pthread_mutex_unlock(&mutex);  // Mutex freigeben
+// Nicht-blockierend EBusy falls schon gesperrt:
+int r = pthread_mutex_trylock(&mutex);
 
 pthread_mutex_destroy(&mutex);
 ```
@@ -1134,6 +1173,191 @@ if (open(...) == -1) {
 ```
 
 #colbreak()
+
+= sizeof-Referenz
+
+#table(
+  columns: (1fr, auto, auto, auto),
+  stroke: 0.5pt,
+  inset: 3pt,
+  table.header([Typ], [Bytes], [Min], [Max]),
+  [`char`],           [`1`], [`-128`],                    [`127`],
+  [`unsigned char`],  [`1`], [`0`],                       [`255`],
+  [`short`],          [`2`], [`-32 768`],                 [`32 767`],
+  [`unsigned short`], [`2`], [`0`],                       [`65 535`],
+  [`int`],            [`4`], [`-2 147 483 648`],          [`2 147 483 647`],
+  [`unsigned int`],   [`4`], [`0`],                       [`4 294 967 295`],
+  [`long`],           [`8`], [`-9.2 × 10`#super[`18`]],  [`9.2 × 10`#super[`18`]],
+  [`unsigned long`],  [`8`], [`0`],                       [`1.8 × 10`#super[`19`]],
+  [`float`],          [`4`], [~1.2 × 10#super[-38]],     [~3.4 × 10#super[38]],
+  [`double`],         [`8`], [~2.2 × 10#super[-308]],    [~1.8 × 10#super[308]],
+  [`pointer`],        [`8`], [–],                         [–],
+  [`size_t`],         [`8`], [`0`],                       [`18.4 × 10`#super[`18`]],
+  [`int8_t`],         [`1`], [`-128`],                    [`127`],
+  [`uint8_t`],        [`1`], [`0`],                       [`255`],
+  [`int16_t`],        [`2`], [`-32 768`],                 [`32 767`],
+  [`uint16_t`],       [`2`], [`0`],                       [`65 535`],
+  [`int32_t`],        [`4`], [`-2 147 483 648`],          [`2 147 483 647`],
+  [`uint32_t`],       [`4`], [`0`],                       [`4 294 967 295`],
+  [`int64_t`],        [`8`], [`-9.2 × 10`#super[`18`]],  [`9.2 × 10`#super[`18`]],
+  [`uint64_t`],       [`8`], [`0`],                       [`1.8 × 10`#super[`19`]],
+)
+
+- Grössen gelten für 64-bit Linux (x86-64); `long` ist auf Windows 32-bit 4 Bytes
+- Konstanten aus `<limits.h>`: `INT_MAX`, `UINT_MAX`, `LONG_MIN`, …
+- Konstanten aus `<float.h>`: `FLT_MAX`, `DBL_MAX`, `FLT_EPSILON`, …
+
+*Array Decay:* Arrays zerfallen beim Übergeben an eine Funktion zu einem Pointer #ra `sizeof` liefert dann *8* (Zeigergrösse), nicht die Array-Länge!
+
+```c
+void f(int a[]) {
+    sizeof(a); // 8 (Pointer!) – NICHT sizeof des Arrays
+}
+int arr[10];
+sizeof(arr); // 40 (korrekt, da im selben Scope)
+f(arr);      // arr zerfällt zu int* → sizeof in f() = 8
+```
+
+#ra Arraylänge immer als separaten Parameter übergeben: `void f(int *a, size_t n)`
+
+= Prüfungs-Snippets
+
+== String umkehren
+
+```c
+void reverse(char *s) {
+    int l = 0, r = strlen(s) - 1;
+    while (l < r) {
+        char tmp = s[l]; s[l] = s[r]; s[r] = tmp;
+        l++; r--;
+    }
+}
+```
+
+== Ziffer extrahieren (Modulo)
+
+```c
+int n = 12345;
+int letzte      = n % 10;        // 5
+int zweitletzte = (n / 10) % 10; // 4
+```
+
+```c
+int quersumme(int n) {
+    if (n < 0) n = -n; // negative Zahlen
+    int s = 0;
+    while (n != 0) { s += n % 10; n /= 10; }
+    return s;
+}
+```
+
+#colbreak()
+
+== Palindrom prüfen
+
+```c
+int is_palindrom(const char *s) {
+    int l = 0, r = strlen(s) - 1;
+    while (l < r)
+        if (s[l++] != s[r--]) return 0;
+    return 1;
+}
+```
+
+== Zeichen zählen / suchen
+
+```c
+#include <ctype.h>
+
+int count_char(const char *s, char c) {
+    int n = 0;
+    while (*s) if (*s++ == c) n++;
+    return n;
+}
+
+// Grossbuchstaben → Kleinbuchstaben:
+for (int i = 0; s[i]; i++) s[i] = tolower(s[i]);
+// weitere: toupper(), isdigit(), isalpha(), isspace()
+```
+
+== Array: Min / Max / Summe
+
+```c
+int min = a[0], max = a[0], sum = 0;
+for (int i = 0; i < n; i++) {
+    if (a[i] < min) min = a[i];
+    if (a[i] > max) max = a[i];
+    sum += a[i];
+}
+double avg = (double)sum / n;
+```
+
+== Bubble Sort
+
+```c
+for (int i = 0; i < n - 1; i++)
+    for (int j = 0; j < n - i - 1; j++)
+        if (a[j] > a[j+1]) {
+            int t = a[j]; a[j] = a[j+1]; a[j+1] = t;
+        }
+```
+
+== Primzahl prüfen
+
+```c
+int is_prime(int n) {
+    if (n < 2) return 0;
+    for (int i = 2; i * i <= n; i++)
+        if (n % i == 0) return 0;
+    return 1;
+}
+```
+
+== GGT (Euklid) & KGV
+
+```c
+int ggt(int a, int b) {
+    while (b) { int t = b; b = a % b; a = t; }
+    return a;
+}
+int kgv(int a, int b) { return a / ggt(a, b) * b; }
+```
+
+== Binäre Suche (sortiertes Array)
+
+```c
+int binsearch(int *a, int n, int key) {
+    int lo = 0, hi = n - 1;
+    while (lo <= hi) {
+        int mid = lo + (hi - lo) / 2; // kein Overflow
+        if      (a[mid] == key) return mid;
+        else if (a[mid]  < key) lo = mid + 1;
+        else                    hi = mid - 1;
+    }
+    return -1; // nicht gefunden
+}
+```
+
+#colbreak()
+
+== Dynamische Liste (Linked List)
+
+```c
+typedef struct Node { int val; struct Node *next; } Node;
+
+Node *push(Node *head, int val) {
+    Node *n = malloc(sizeof(Node));
+    n->val = val; n->next = head;
+    return n; // neuer Kopf
+}
+void print_list(Node *head) {
+    for (; head; head = head->next)
+        printf("%d ", head->val);
+}
+void free_list(Node *head) {
+    while (head) { Node *t = head->next; free(head); head = t; }
+}
+```
 
 = ASCII Tabelle
 #table(
