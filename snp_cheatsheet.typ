@@ -166,6 +166,15 @@ d.i = 42;  // i, f und bytes teilen denselben Speicher
 - Nur ein Member gleichzeitig sinnvoll/gültig
 - Typisch: Typkonvertierung auf Byte-Ebene, Protokoll-Parsing
 
+== Struct Padding & Alignment
+
+Der Compiler fügt *Padding-Bytes* ein, damit jedes Member an seiner natürlichen Alignment-Grenze liegt (`int` auf 4-Byte, `double` auf 8-Byte, etc.).
+
+- Faustregel: Members von *gross nach klein* anordnen #ra minimales Padding
+- `offsetof(Typ, Member)` aus `<stddef.h>` #ra Offset eines Members in Bytes
+- `__attribute__((packed))` (GCC) #ra *kein* Padding, aber langsamer Zugriff & potenzielle Alignment-Fehler
+- `sizeof(struct)` immer mit `sizeof` prüfen, nie manuell ausrechnen
+
 == Präprozessor
 
 - `#include <stdio.h>` #en System-Header
@@ -193,8 +202,6 @@ gcc -o hello hello.c  # alles in einem Schritt
 - Header (`.h`): enthält nur *Deklarationen* (kein Code, keine Variablen-Definition)
 - Quelldatei (`.c`): enthält *Definition* + `#include "modul.h"`
 - `static` vor Funktion #ra nur im eigenen File sichtbar (nicht-öffentlich)
-
-#colbreak()
 
 = Funktionen
 
@@ -259,6 +266,8 @@ void print(const char *s);   // liest nur → const
 void modify(char *s);        // schreibt   → kein const
 ```
 
+#colbreak()
+
 == volatile-Qualifier
 
 - `volatile`: verhindert Compiler-Optimierung (kein Cachen in Register)
@@ -273,8 +282,6 @@ int main(void) {
     while (!flag) { /* busy-wait */ }
 }
 ```
-
-#colbreak()
 
 == Variadic Functions
 
